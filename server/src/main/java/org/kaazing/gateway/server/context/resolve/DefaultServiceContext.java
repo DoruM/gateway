@@ -90,6 +90,7 @@ import org.kaazing.gateway.transport.Transport;
 import org.kaazing.gateway.transport.TransportFactory;
 import org.kaazing.gateway.util.Encoding;
 import org.kaazing.gateway.util.GL;
+import org.kaazing.gateway.util.exception.ServiceContextException;
 import org.kaazing.gateway.util.scheduler.SchedulerProvider;
 import org.kaazing.mina.core.session.IoSessionEx;
 import org.slf4j.Logger;
@@ -1066,9 +1067,13 @@ public class DefaultServiceContext implements ServiceContext {
     }
 
     @Override
-    public void start() throws MalformedURLException, RemoteException, URISyntaxException, IOException{
+    public void start() throws ServiceContextException  {
         if (started.compareAndSet(false, true)) {
-            getService().start();
+            try {
+                getService().start();
+            } catch (URISyntaxException | IOException e) {
+                throw new ServiceContextException(e);
+            }
         }
     }
 

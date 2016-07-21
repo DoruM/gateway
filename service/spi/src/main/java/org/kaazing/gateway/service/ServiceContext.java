@@ -31,8 +31,10 @@ import org.kaazing.gateway.resource.address.ResourceAddress;
 import org.kaazing.gateway.security.CrossSiteConstraintContext;
 import org.kaazing.gateway.security.RealmContext;
 import org.kaazing.gateway.transport.BridgeSessionInitializer;
+import org.kaazing.gateway.util.exception.ServiceContextException;
 import org.kaazing.gateway.util.scheduler.SchedulerProvider;
 import org.kaazing.mina.core.session.IoSessionEx;
+import org.kaazing.gateway.util.exception.ServiceContextException;
 import org.slf4j.Logger;
 
 public interface ServiceContext {
@@ -81,7 +83,7 @@ public interface ServiceContext {
 
     void init() ;
 
-    void start() throws MalformedURLException, RemoteException, URISyntaxException, IOException;
+    void start() throws ServiceContextException;
 
     void bind(Collection<String> acceptURIs, IoHandler handler);
 

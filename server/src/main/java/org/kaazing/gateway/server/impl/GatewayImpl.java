@@ -46,6 +46,7 @@ import org.kaazing.gateway.server.context.GatewayContext;
 import org.kaazing.gateway.server.context.resolve.GatewayContextResolver;
 import org.kaazing.gateway.server.util.version.DuplicateJarFinder;
 import org.kaazing.gateway.server.util.version.DuplicateJarsException;
+import org.kaazing.gateway.util.exception.LauncherException;
 import org.slf4j.Logger;
 import org.w3c.dom.Element;
 
@@ -149,24 +150,19 @@ final class GatewayImpl implements Gateway {
     /**
      * <p> Launch the in-process Gateway. </p>
      * @throws GatewayAlreadyRunningException 
-     * @throws ConfigurationException 
      * @throws DuplicateJarsException 
-     * @throws IOException 
-     * @throws GeneralSecurityException 
-     * @throws URISyntaxException 
-     * @throws IllegalAccessException 
-     * @throws InstantiationException 
+     * @throws LauncherException 
      * @throws Exception
      */
     @Override
-    public void launch() throws GatewayAlreadyRunningException, ConfigurationException, IOException, InstantiationException, IllegalAccessException, URISyntaxException, GeneralSecurityException {
+    public void launch() throws GatewayAlreadyRunningException, LauncherException {
 
         if (baseGateway != null) {
             baseGateway.launch();
         }
 
         if (gateway != null) {
-            throw new GatewayAlreadyRunningException("An instance of the Gateway is already running");
+            throw new LauncherException(new GatewayAlreadyRunningException("An instance of the Gateway is already running"));
         }
 
         Properties configuration = getProperties();
@@ -174,7 +170,7 @@ final class GatewayImpl implements Gateway {
             // Change to a public exception once all calls to System.getProperty() throughout the entire
             // codebase have been eliminated.
             //
-            throw new ConfigurationException("No environment has been specified");
+            throw new LauncherException(new ConfigurationException("No environment has been specified"));
         }
 
         String bypassPlatformCheckStr = configuration.getProperty(BYPASS_PLATFORM_CHECK_PROPERTY);
@@ -190,13 +186,13 @@ final class GatewayImpl implements Gateway {
 
         String gatewayHomeProperty = configuration.getProperty(GATEWAY_HOME_PROPERTY);
         if (gatewayHomeProperty == null) {
-            throw new IllegalArgumentException(GATEWAY_HOME_PROPERTY + " directory was not specified");
+            throw new LauncherException(new IllegalArgumentException(GATEWAY_HOME_PROPERTY + " directory was not specified"));
         }
 
         File homeDir = new File(gatewayHomeProperty);
         if (!homeDir.isDirectory()) {
-            throw new IllegalArgumentException(GATEWAY_HOME_PROPERTY + " is not a valid directory: "
-                    + homeDir.getAbsolutePath());
+            throw new LauncherException(new IllegalArgumentException(GATEWAY_HOME_PROPERTY + " is not a valid directory: "
+                    + homeDir.getAbsolutePath()));
         }
 
         String gatewayConfigDirectoryProperty = configuration.getProperty(GATEWAY_CONFIG_DIRECTORY_PROPERTY);
@@ -204,8 +200,8 @@ final class GatewayImpl implements Gateway {
                          ? new File(gatewayConfigDirectoryProperty)
                          : new File(homeDir, DEFAULT_CONFIG_DIRECTORY);
         if (!configDir.isDirectory()) {
-            throw new IllegalArgumentException(GATEWAY_CONFIG_DIRECTORY_PROPERTY + " is not a valid directory: "
-                    + configDir.getAbsolutePath());
+            throw new LauncherException(new IllegalArgumentException(GATEWAY_CONFIG_DIRECTORY_PROPERTY + " is not a valid directory: "
+                    + configDir.getAbsolutePath()));
         }
 
         // Login modules needs the CONFIG directory, put it back into the configuration properties.
@@ -216,8 +212,8 @@ final class GatewayImpl implements Gateway {
                        ? new File(gatewayTempDirectoryProperty)
                        : new File(homeDir, DEFAULT_TEMP_DIRECTORY);
         if (!tempDir.isDirectory()) {
-            throw new IllegalArgumentException(GATEWAY_TEMP_DIRECTORY_PROPERTY + " is not a valid directory: "
-                    + tempDir.getAbsolutePath());
+            throw new LauncherException(new IllegalArgumentException(GATEWAY_TEMP_DIRECTORY_PROPERTY + " is not a valid directory: "
+                    + tempDir.getAbsolutePath()));
         }
 
         String gatewayLogDirectoryProperty = configuration.getProperty(GATEWAY_LOG_DIRECTORY_PROPERTY);
@@ -228,8 +224,8 @@ final class GatewayImpl implements Gateway {
             logDir.mkdir();
         }
         if (!logDir.isDirectory()) {
-            throw new IllegalArgumentException(GATEWAY_LOG_DIRECTORY_PROPERTY
-                    + " is not a valid directory or could not be created: " + logDir.getAbsolutePath());
+            throw new LauncherException(new IllegalArgumentException(GATEWAY_LOG_DIRECTORY_PROPERTY
+                    + " is not a valid directory or could not be created: " + logDir.getAbsolutePath()));
         }
 
         // Because we use Log4J and it contains a reference to ${GATEWAY_LOG_DIRECTORY},
@@ -269,9 +265,9 @@ final class GatewayImpl implements Gateway {
         if (gatewayConfigProperty != null) {
             gatewayConfigFile = new File(gatewayConfigProperty);
             if (!gatewayConfigFile.isFile() || !gatewayConfigFile.canRead()) {
-                throw new IllegalArgumentException(GATEWAY_CONFIG_PROPERTY
+                throw new LauncherException(new IllegalArgumentException(GATEWAY_CONFIG_PROPERTY
                         + " was specified but is not a valid, readable file: "
-                        + gatewayConfigFile.getAbsolutePath());
+                        + gatewayConfigFile.getAbsolutePath()));
             }
         } else {
             gatewayConfigFile = new File(configDir, DEFAULT_GATEWAY_CONFIG_XML);
@@ -279,9 +275,9 @@ final class GatewayImpl implements Gateway {
                 gatewayConfigFile = new File(configDir, DEFAULT_GATEWAY_CONFIG_MINIMAL_XML);
             }
             if (!gatewayConfigFile.isFile() || !gatewayConfigFile.canRead()) {
-                throw new IllegalArgumentException(GATEWAY_CONFIG_PROPERTY
+                throw new LauncherException(new IllegalArgumentException(GATEWAY_CONFIG_PROPERTY
                         + " was not specified, and no default readable config file"
-                        + " could be found in the conf/ directory");
+                        + " could be found in the conf/ directory"));
             }
         }
 
@@ -299,34 +295,47 @@ final class GatewayImpl implements Gateway {
 
         String overrideLogging = configuration.getProperty(OVERRIDE_LOGGING);
         if ((overrideLogging == null) || !Boolean.parseBoolean(overrideLogging)) {
-            configureLogging(configDir, configuration);
+            try {
+                configureLogging(configDir, configuration);
+            } catch (MalformedURLException e) {
+                throw new LauncherException(e);
+            }
         }
 
         try {
             duplicateJarFinder.findDuplicateJars();
-        } catch (DuplicateJarsException e1) {
-            throw new ConfigurationException(e1.getMessage());
+        } catch (DuplicateJarsException | IOException e1) {
+            throw new LauncherException(e1);
         }
 
         displayVersionInfo();
 
-        LOGGER.info("Configuration file: " + gatewayConfigFile.getCanonicalPath());
+        GatewayObserver gatewayObserver;
+        GatewayContext context;
+        try {
+            LOGGER.info("Configuration file: " + gatewayConfigFile.getCanonicalPath());
 
-        GatewayObserver gatewayObserver = GatewayObserver.newInstance();
-        GatewayConfigParser parser = new GatewayConfigParser(configuration);
-        GatewayConfigDocument config = parser.parse(gatewayConfigFile);
-        GatewayContextResolver resolver = new GatewayContextResolver(configDir, webRootDir, tempDir, jmxMBeanServer);
-        gatewayObserver.initingGateway(configuration, resolver.getInjectables());
-        GatewayContext context = resolver.resolve(config, configuration);
+            gatewayObserver = GatewayObserver.newInstance();
+            GatewayConfigParser parser = new GatewayConfigParser(configuration);
+            GatewayConfigDocument config = parser.parse(gatewayConfigFile);
+            GatewayContextResolver resolver = new GatewayContextResolver(configDir, webRootDir, tempDir, jmxMBeanServer);
+            gatewayObserver.initingGateway(configuration, resolver.getInjectables());
+            context = resolver.resolve(config, configuration);
+        } catch (InstantiationException | IllegalAccessException | IOException | URISyntaxException
+                | GeneralSecurityException e1) {
+            throw new LauncherException(e1);
+        }
 
         gateway = new Launcher(gatewayObserver);
 
-        try {
-            gateway.init(context);
-        } catch (Exception e) {
-            LOGGER.error(String.format("Error starting Gateway: caught exception %s", e));
-            throw e;
-        }
+//        try {
+            try {
+                gateway.init(context);
+            } catch (LauncherException e) {
+                // TODO Auto-generated catch block
+                LOGGER.error(String.format("Error starting Gateway: caught exception %s", e));
+                throw e;
+            }
     }
 
     @Override

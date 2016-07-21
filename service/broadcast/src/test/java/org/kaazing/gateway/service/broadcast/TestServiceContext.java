@@ -54,6 +54,7 @@ import org.kaazing.gateway.service.ServiceContext;
 import org.kaazing.gateway.service.ServiceProperties;
 import org.kaazing.gateway.transport.BridgeSessionInitializer;
 import org.kaazing.gateway.transport.IoHandlerAdapter;
+import org.kaazing.gateway.util.exception.ServiceContextException;
 import org.kaazing.gateway.util.scheduler.SchedulerProvider;
 import org.kaazing.mina.core.service.IoAcceptorEx;
 import org.kaazing.mina.core.service.IoConnectorEx;
@@ -175,8 +176,12 @@ public class TestServiceContext implements ServiceContext {
     }
 
     @Override
-    public void start() throws MalformedURLException, RemoteException, URISyntaxException, IOException  {
-        service.start();
+    public void start() throws ServiceContextException  {
+        try {
+            service.start();
+        } catch (URISyntaxException | IOException e) {
+            throw new ServiceContextException(e);
+        }
     }
 
     @Override

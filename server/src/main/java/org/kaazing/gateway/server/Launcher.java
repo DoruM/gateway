@@ -15,6 +15,7 @@
  */
 package org.kaazing.gateway.server;
 
+
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
@@ -29,8 +30,8 @@ import org.kaazing.gateway.service.AcceptOptionsContext;
 import org.kaazing.gateway.service.ServiceContext;
 import org.kaazing.gateway.service.cluster.ClusterContext;
 import org.kaazing.gateway.util.GL;
-
-
+import org.kaazing.gateway.util.exception.LauncherException;
+import org.kaazing.gateway.util.exception.ServiceContextException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,19 +50,19 @@ public class Launcher {
         this.gatewayListener = gatewayListener;
     }
 
-    public void init(GatewayContext context) throws URISyntaxException , IOException  {
+    public void init(GatewayContext context) throws LauncherException  {
         gatewayListener.startingGateway(context);
 
             try {
                 initInternal(context);
-            } catch (URISyntaxException | IOException e) {
+            } catch (ServiceContextException e) {
              // shut down gateway if there was an error during init
                 destroy();
-                throw e;
+                throw new LauncherException(e);
             }
     }
 
-    private void initInternal(GatewayContext context) throws MalformedURLException, RemoteException, URISyntaxException, IOException  {
+    private void initInternal(GatewayContext context) throws  ServiceContextException  {
         this.context = context;
 
         long startAt = System.currentTimeMillis();

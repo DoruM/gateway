@@ -16,14 +16,15 @@
 package org.kaazing.gateway.server;
 
 
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URISyntaxException;
-import java.security.GeneralSecurityException;
+
 import java.util.Properties;
 
 import javax.management.MBeanServer;
-import javax.naming.ConfigurationException;
+
+import org.kaazing.gateway.util.exception.LauncherException;
+
+
+
 
 
 
@@ -167,11 +168,10 @@ public interface Gateway {
      * thrown.
      *
      * After calling destroy, the Gateway can be launched again.
+     * @throws GatewayAlreadyRunningException
+     * @throws LauncherException
      */
-    void launch() throws GatewayAlreadyRunningException,
-ConfigurationException, MalformedURLException,
-IOException, InstantiationException,
-IllegalAccessException, URISyntaxException, GeneralSecurityException;
+    void launch() throws GatewayAlreadyRunningException, LauncherException;
 
     /**
      * Stops the running Gateway.  If the Gateway has already been destroyed this has no effect.
