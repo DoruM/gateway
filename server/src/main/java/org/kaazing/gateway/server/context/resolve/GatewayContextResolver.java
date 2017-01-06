@@ -16,7 +16,6 @@
 package org.kaazing.gateway.server.context.resolve;
 
 import static org.kaazing.gateway.resource.address.uri.URIUtils.buildURIAsString;
-
 import static org.kaazing.gateway.resource.address.uri.URIUtils.getAuthority;
 import static org.kaazing.gateway.resource.address.uri.URIUtils.getCanonicalURI;
 import static org.kaazing.gateway.resource.address.uri.URIUtils.getFragment;
@@ -105,6 +104,7 @@ import org.kaazing.gateway.util.GL;
 import org.kaazing.gateway.util.InternalSystemProperty;
 import org.kaazing.gateway.util.Utils;
 import org.kaazing.gateway.util.aws.AwsUtils;
+import org.kaazing.gateway.util.feature.EarlyAccessFeatures;
 import org.kaazing.gateway.util.scheduler.SchedulerProvider;
 import org.slf4j.Logger;
 import org.w3c.dom.Node;
@@ -997,7 +997,9 @@ public class GatewayContextResolver {
                 for (LoginModuleType loginModule : loginModulesArray) {
                     String type = loginModule.getType();
                     String success = loginModule.getSuccess().toString();
-
+                    if (type.equals("class:com.kaazing.gateway.security.auth.SAMLLoginModule")) {
+                        EarlyAccessFeatures.SAML_LOGIN_MODULE.assertEnabled(configuration, LOGGER);
+                    }
                     Map<String, Object> options = resolveOptions(configuration, securityConfig, expiringState);
 
                     LoginModuleOptionsType rawOptions = loginModule.getOptions();
@@ -1027,7 +1029,7 @@ public class GatewayContextResolver {
                         }
                         configurationEntries.add(new AppConfigurationEntry(className, controlFlag, options));
                     } else {
-                        String className = getLoginModuleClass(type);
+                        String className = getLoginModuleClass(type, configuration);
                         if (className == null) {
                             throw new IllegalArgumentException("Unrecognized login module type: " + type);
                         }
@@ -1132,16 +1134,16 @@ public class GatewayContextResolver {
         return dependencyContextMap;
     }
 
-    private String getLoginModuleClass(String loginModuleType) {
+    private String getLoginModuleClass(String loginModuleType, Properties configuration) {
         String loginModuleClassName = loginModuleClassNames.get(loginModuleType);
         if (loginModuleClassName == null) {
-            loginModuleClassName = findLoginModuleClass(loginModuleType);
+            loginModuleClassName = findLoginModuleClass(loginModuleType, configuration);
             loginModuleClassNames.put(loginModuleType, loginModuleClassName);
         }
         return loginModuleClassName;
     }
 
-    private String findLoginModuleClass(String loginModuleType) {
+    private String findLoginModuleClass(String loginModuleType, Properties configuration) {
         String packageName = Gateway.class.getPackage().getName();
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         URL resource = classLoader.getResource("META-INF/services/" + packageName.replace('.', '/') + "/loginModule/"
@@ -1209,7 +1211,7 @@ public class GatewayContextResolver {
 
 
     /**
-     * Gross method to tell us if a given service type supports using 'accept's. XXX This needs to be fixed later!
+    )    * Gross method to tell us if a given service type supports using 'accept's. XXX This needs to be fixed later!
      *
      * @param serviceType
      * @return
